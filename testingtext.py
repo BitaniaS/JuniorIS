@@ -161,8 +161,6 @@ def preprocess_img(img):
 
 # batch generator 
 
-
-
 def batch_generator(filelist,n_classes,batch_size,augment):
   datagen = ImageDataGenerator(
       rotation_range=30,
@@ -203,24 +201,22 @@ def batch_generator(filelist,n_classes,batch_size,augment):
 
 
 
+def plot_epochMetric(history,metric):
+       
+       train_metrics = history.history[metric]
+       val_metrics = history.history['val_'+metric]
+       epochs = range(1, len(train_metrics) + 1)
+       plt.plot(epochs, train_metrics)
+       plt.plot(epochs, val_metrics)
+       plt.title('Training and validation '+ metric)
+       plt.xlabel("Epochs")
+       plt.ylabel(metric)
+       plt.legend(["train_"+metric, 'val_'+metric])
+       plt.show()
 
 metric =  ['accuracy']
 input_size = (320,320,1)
 
-def plot_metric(history, metric, filename):
-    train_metrics = history.history[metric]
-    val_metrics = history.history['val_'+metric]
-    epochs = range(1, len(train_metrics) + 1)
-    plt.plot(epochs, train_metrics)
-    plt.plot(epochs, val_metrics)
-    plt.title('Training and validation '+ metric)
-    plt.xlabel("Epochs")
-    plt.ylabel(metric)
-    plt.legend(["train_"+metric, 'val_'+metric])
-    if filename is not None:
-        plt.savefig(filename, dpi=100, bbox_inches='tight',format='jpg')
-    else:
-        plt.show()
 
 params = {
     'lr': [1e-3, 1e-4, 1e-5], 
@@ -235,9 +231,9 @@ params = {
 
 val_loss_list = []
 val_acc_list = []
-f1_list = []
-prec_list = []
-rec_list = []
+# f1_list = []
+# prec_list = []
+# rec_list = []
 
 #splitting the dataset (lela type of splitting new metekem yalebign)
 random.shuffle(image_list)
@@ -302,11 +298,11 @@ def unet(n_items):
         history = model.fit(batch_generator(file_train,2,batch_s,augment = augment_v),epochs=epochs,steps_per_epoch=step,validation_data=valid_gen,
                    validation_steps=step,callbacks=[mc],shuffle=1)
        
-        val_loss_list.append(history.history['val_loss'])
+        val_loss_list.append(history.history['loss'])
         val_acc_list.append(history.history['accuracy'])
-        plot_metric(history,'accuracy','search{i}_accuracy')
-        plot_metric(history,'loss','search{i}_loss')
-
+        plot_epochMetric(history,'accuracy')
+        plot_epochMetric(history,'loss')
+                         
         # f1_list.append(history.history['f1_score'])
         # prec_list.append(history.history['precision'])
         # rec_list.append(history.history['recall'])
@@ -323,15 +319,18 @@ def unet(n_items):
        
     #visualizing the metrics
 
-def Rsearch_result():
+def plot_rsearch():
+
     plt.plot(val_loss_list, label='val_loss')
     plt.plot(val_acc_list, label='accuracy')
-    plt.plot(f1_list, label='f1_score')
-    plt.plot(prec_list, label='precision')
-    plt.plot(rec_list, label='recall')
+    # plt.plot(f1_list, label='f1_score')
+    # plt.plot(prec_list, label='precision')
+    # plt.plot(rec_list, label='recall')
     plt.legend()
     plt.show()
 
+
+   
 unet(4)
 # model=unet()
 # model.summary() 
