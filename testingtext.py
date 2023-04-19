@@ -10,9 +10,13 @@ from keras.optimizers import Adam
 import random
 from keras.preprocessing.image import ImageDataGenerator
 from keras import regularizers
+from keras.regularizers import L2
 from keras.callbacks import ModelCheckpoint
 from keras.callbacks import Callback
 from sklearn.metrics import accuracy_score, f1_score
+import matplotlib.pyplot as plt
+from keras.callbacks import CSVLogger
+
 
 
 '''
@@ -157,6 +161,8 @@ def preprocess_img(img):
 
 # batch generator 
 
+
+
 def batch_generator(filelist,n_classes,batch_size,augment):
   datagen = ImageDataGenerator(
       rotation_range=30,
@@ -198,20 +204,40 @@ def batch_generator(filelist,n_classes,batch_size,augment):
 
 
 
-metric =  ['accuracy','f1_score','precision','recall']
+metric =  ['accuracy']
 input_size = (320,320,1)
 
+def plot_metric(history, metric, filename):
+    train_metrics = history.history[metric]
+    val_metrics = history.history['val_'+metric]
+    epochs = range(1, len(train_metrics) + 1)
+    plt.plot(epochs, train_metrics)
+    plt.plot(epochs, val_metrics)
+    plt.title('Training and validation '+ metric)
+    plt.xlabel("Epochs")
+    plt.ylabel(metric)
+    plt.legend(["train_"+metric, 'val_'+metric])
+    if filename is not None:
+        plt.savefig(filename, dpi=100, bbox_inches='tight',format='jpg')
+    else:
+        plt.show()
 
 params = {
     'lr': [1e-3, 1e-4, 1e-5], 
     'batch_size': [4,8,16],
-    'epochs': [10, 20, 30],
+    'epochs': [3, 5, 7],
     'filters': [8, 16, 32],
     'steps':[100,150,200],
     'w_decay' : [0.00001, 0.0001, 0.001],
     'step' :[100,150,200],
     'augment_v': ['True','False']
 }
+
+val_loss_list = []
+val_acc_list = []
+f1_list = []
+prec_list = []
+rec_list = []
 
 #splitting the dataset (lela type of splitting new metekem yalebign)
 random.shuffle(image_list)
@@ -223,7 +249,7 @@ file_test=image_list[int(0.90*len(image_list)):]
 def unet(n_items):
 
     for i in range (n_items):
-        valid_gen = batch_generator(file_valid, batch_size=2, height=2, width=2)
+        valid_gen = batch_generator(file_valid, 2,20,augment=False)
         # Randomly choose hyperparameters
         learn_r = random.choice(params['lr'])
         batch_s = random.choice(params['batch_size']) 
@@ -264,21 +290,28 @@ def unet(n_items):
 
         outputs = Conv2D(filters, 1, activation='softmax')(up6)
         model = Model(inputs=[inputs], outputs=[outputs])
+
         
         # the order of it mastekakel alebign
-        mc = ModelCheckpoint('best_weight_for{i}.h5', monitor=['f1_score','val_loss','precision','recall'],
-                             save_best_only=True, period=1)
-        model.compile(optimizer = Adam(lr = learn_r), loss = 'binary_crossentropy', metrics= metric,
-                       kernel_regularizer = regularizers.L2(w_decay),batch_regularizer= regularizers.L2(w_decay)  )
+        mc = ModelCheckpoint('best_weight{i}_epoch{epoch:03d}.h5', monitor=' precision, recall',
+                             save_best_only=True)
+        model.compile(optimizer = Adam(learning_rate= learn_r), loss = 'binary_crossentropy', metrics= metric
+                     )
      
-        csv_logger = csv_logger('training_history.csv',append = True)
-        history = model.fit(batch_generator(file_train,2,batch_s,augment_v),epochs=epochs,steps_per_epoch=step,validation_data=valid_gen,
-                   validation_steps=400,callbacks=[mc,csv_logger],shuffle=1)
-        val_loss = history.history['val_loss']
-        val_acc = history.history['accuracy']
-        f1= history.history['f1_score']
-        prec = history.history['precision']
-        rec = history.history['recall']
+        # csv_logger = CSVLogger('training_history.csv',append = True)
+        history = model.fit(batch_generator(file_train,2,batch_s,augment = augment_v),epochs=epochs,steps_per_epoch=step,validation_data=valid_gen,
+                   validation_steps=step,callbacks=[mc],shuffle=1)
+       
+        val_loss_list.append(history.history['val_loss'])
+        val_acc_list.append(history.history['accuracy'])
+        plot_metric(history,'accuracy','search{i}_accuracy')
+        plot_metric(history,'loss','search{i}_loss')
+
+        # f1_list.append(history.history['f1_score'])
+        # prec_list.append(history.history['precision'])
+        # rec_list.append(history.history['recall'])
+        model.summary()
+  
         
 
         # score = model.evaluate(valid_gen, metrics = metric ) #the hyperparameters mastekakel alebign
@@ -287,9 +320,21 @@ def unet(n_items):
     # if(pretrained_weights):
     #     model.load_weights(pretrained_weights)
         return model
+       
+    #visualizing the metrics
 
-model=unet()
-model.summary() 
+def Rsearch_result():
+    plt.plot(val_loss_list, label='val_loss')
+    plt.plot(val_acc_list, label='accuracy')
+    plt.plot(f1_list, label='f1_score')
+    plt.plot(prec_list, label='precision')
+    plt.plot(rec_list, label='recall')
+    plt.legend()
+    plt.show()
+
+unet(4)
+# model=unet()
+# model.summary() 
 
 
 
